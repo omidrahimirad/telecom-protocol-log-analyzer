@@ -1,17 +1,31 @@
 # Telecom Protocol Log Analyzer
 
-`telecom-protocol-log-analyzer` is a Python CLI tool for analyzing simplified 4G/5G protocol troubleshooting logs. It parses RRC, NAS, NGAP, and LTE-style control-plane messages, reconstructs UE timelines, detects common registration/session/RRC/handover failures, and generates recruiter-friendly troubleshooting reports.
+`telecom-protocol-log-analyzer` is a procedure-aware analyzer for simplified and decoded 4G/5G control-plane event traces. It normalizes decoded events from simplified logs and best-effort TShark JSON exports, correlates UE/procedure/session identifiers, checks common registration/session/RRC/handover flows, and generates evidence-based troubleshooting reports.
 
-This is not a full 3GPP ASN.1 decoder, PCAP decoder, or replacement for commercial tools. It is a practical engineering portfolio project that demonstrates how wireless support, modem/RF application, field test, and protocol troubleshooting workflows can be modeled in clean Python.
+This is not a full 3GPP ASN.1 decoder, raw PCAP decoder, QXDM/TEMS/Nemo replacement, or commercial-grade RCA system. It is a lab-oriented trace triage and portfolio project for already-decoded telecom events.
+
+## What This Project Is
+
+- decoded event trace analyzer
+- procedure-aware troubleshooting engine
+- supports simplified logs and best-effort TShark JSON ingestion
+- useful for learning, lab validation, and portfolio demonstration
+
+## What This Project Is Not
+
+- not a raw PCAP decoder
+- not a QXDM/TEMS/Nemo replacement
+- not fully 3GPP compliant
+- not a commercial-grade RCA system
 
 ## Why It Matters
 
 Real telecom troubleshooting is rarely about one line in isolation. Engineers correlate UE messages, gNB/RAN signaling, AMF/SMF behavior, cause codes, retries, and timing. This project models that workflow with simplified logs so the analysis is easy to run locally while still showing realistic protocol thinking.
 
-Supported protocol layers:
+Supported decoded protocol layers:
 
 - RRC: setup, reconfiguration, release, radio link failure
-- NAS: 5G registration, authentication, security mode, PDU session establishment
+- NAS/NAS_5GS: 5G registration, authentication, security mode, PDU session establishment
 - NGAP: initial UE message, NAS transport, context setup, PDU resource setup, handover
 - LTE-style concepts can be represented with the same simplified key-value format
 
@@ -27,15 +41,12 @@ Detected failure families:
 
 ```mermaid
 flowchart LR
-    A["Text or JSONL log"] --> B["Parser"]
-    B --> C["Sessionizer"]
-    C --> D["State-machine helpers"]
-    C --> E["Rule engine"]
-    D --> F["Analysis report"]
-    E --> F["Analysis report"]
-    F --> G["Terminal"]
-    F --> H["JSON"]
-    F --> I["Markdown"]
+    A["Simplified text / JSONL / TShark JSON"] --> B["Input adapters"]
+    B --> C["Normalization"]
+    C --> D["Correlation"]
+    D --> E["Procedure analyzers"]
+    E --> F["Evidence-based reports"]
+    F --> G["Terminal / JSON / Markdown / HTML"]
 ```
 
 ## Example Input
@@ -65,6 +76,13 @@ Run the analyzer:
 
 ```bash
 uv run python -m telecom_log_analyzer analyze data/samples/registration_auth_failure.log
+```
+
+Analyze a TShark JSON export:
+
+```bash
+tshark -r capture.pcapng -T json > capture.tshark.json
+uv run python -m telecom_log_analyzer analyze capture.tshark.json --input-format tshark-json
 ```
 
 Standard pip editable installation is still possible, but uv is recommended for reproducible local development and CI:
@@ -121,6 +139,21 @@ Generate synthetic logs:
 python -m telecom_log_analyzer generate --scenario registration_auth_failure --ues 5 --output generated.log
 ```
 
+Convert decoded TShark JSON to normalized JSONL:
+
+```bash
+uv run python -m telecom_log_analyzer convert tests/fixtures/tshark/sample_registration.tshark.json \
+  --input-format tshark-json \
+  --to normalized-jsonl
+```
+
+Use timer profiles:
+
+```bash
+uv run python -m telecom_log_analyzer analyze data/samples/handover_success.log --timer-profile lab
+uv run python -m telecom_log_analyzer analyze data/samples/handover_success.log --timer-profile field
+```
+
 ## Example Output
 
 ```text
@@ -164,7 +197,11 @@ uv run coverage report
 
 ```text
 src/telecom_log_analyzer/
-  parser.py              # text and JSONL parser
+  adapters/              # simplified text, JSONL, and best-effort TShark JSON ingestion
+  parser.py              # backward-compatible parser facade
+  correlator.py          # UE/procedure/PDU/mobility correlation summary
+  timers.py              # configurable timer profiles
+  knowledge_base/        # simplified cause-code catalog
   sessionizer.py         # UE timeline reconstruction
   state_machines.py      # simplified ordered flow checks reported alongside issues
   rules.py               # telecom failure detection logic
@@ -188,14 +225,15 @@ This project is designed to demonstrate skills useful for:
 ## Limitations
 
 - Uses simplified key-value and JSONL logs inspired by real troubleshooting flows.
-- Does not decode ASN.1, NAS binary payloads, PCAP files, or vendor proprietary trace formats.
+- TShark JSON support is best-effort and depends on fields exposed by Wireshark/TShark.
+- Does not decode ASN.1, NAS binary payloads, raw PCAP files, or vendor proprietary trace formats.
 - Does not claim full 3GPP compliance.
 - Cause explanations are practical heuristics and should be correlated with network counters and vendor logs.
 - Intended for portfolio, learning, troubleshooting workflow demonstration, and lightweight log triage.
 
 ## Future Improvements
 
-- PCAP/packet-decoder adapter layer for decoded Wireshark JSON.
+- Additional decoded-trace adapters for lab and vendor export formats.
 - More detailed 4G S1AP/X2AP attach and handover state machines.
 - Timer profiles per vendor/test campaign.
 - Correlation IDs for N1/N2/N11/N3 troubleshooting across AMF, SMF, UPF, and gNB logs.

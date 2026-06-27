@@ -1,0 +1,27 @@
+[
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "1"
+        },
+        "nas-5gs": {
+          "nas-5gs.imsi": "IMSI001010555999999"
+        }
+      }
+    }
+  },
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "2",
+          "frame.time_epoch": "1780317601.000"
+        },
+        "tcp": {
+          "tcp.port": "38412"
+        }
+      }
+    }
+  }
+]

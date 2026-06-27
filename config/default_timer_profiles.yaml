@@ -1,0 +1,11 @@
+profiles:
+  lab:
+    registration_auth_timeout_ms: 3000
+    security_mode_timeout_ms: 3000
+    pdu_session_setup_timeout_ms: 5000
+    handover_completion_timeout_ms: 2000
+  field:
+    registration_auth_timeout_ms: 10000
+    security_mode_timeout_ms: 10000
+    pdu_session_setup_timeout_ms: 15000
+    handover_completion_timeout_ms: 5000

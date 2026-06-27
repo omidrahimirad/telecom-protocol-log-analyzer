@@ -13,7 +13,7 @@ def render_terminal(report: AnalysisReport) -> str:
         f"Telecom Protocol Log Analysis: {report.source}",
         "=" * 78,
         (
-            f"Sessions: {len(report.sessions)} | Events: "
+            f"UE traces: {len(report.sessions)} | Events: "
             f"{sum(len(session.events) for session in report.sessions)} | Issues: {len(report.issues)} "
             f"| Critical: {report.critical_count} | High: {report.high_count} | "
             f"Warnings: {len(report.warnings)}"
@@ -28,7 +28,12 @@ def render_terminal(report: AnalysisReport) -> str:
 
     if report.issues:
         lines.append("Detected Issues")
-        lines.append(_table(["Severity", "Issue", "Session", "Layer"], _issue_rows(report.issues)))
+        lines.append(
+            _table(
+                ["Severity", "Issue", "Session", "Domain", "Owner", "Confidence"],
+                _issue_rows(report.issues),
+            )
+        )
         lines.append("")
         for issue in report.issues:
             lines.extend(_terminal_issue_detail(issue))
@@ -58,6 +63,19 @@ def render_json(report: AnalysisReport) -> str:
     return json.dumps(report.to_dict(), indent=2, sort_keys=True)
 
 
+def render_html(report: AnalysisReport) -> str:
+    body = render_markdown(report)
+    escaped = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        "<title>Telecom Protocol Log Analysis Report</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;"
+        "line-height:1.5}pre{white-space:pre-wrap;background:#f6f8fa;padding:1rem;"
+        "border-radius:6px}</style></head><body><pre>"
+        f"{escaped}</pre></body></html>"
+    )
+
+
 def render_markdown(report: AnalysisReport) -> str:
     lines = [
         "# Telecom Protocol Log Analysis Report",
@@ -67,6 +85,8 @@ def render_markdown(report: AnalysisReport) -> str:
         "## Summary",
         "",
         f"- Sessions analyzed: {len(report.sessions)}",
+        f"- UEs/traces analyzed: {len(report.sessions)}",
+        f"- Procedures observed: {sum(len(checks) for checks in report.flow_checks.values())}",
         f"- Events analyzed: {sum(len(session.events) for session in report.sessions)}",
         f"- Issues detected: {len(report.issues)}",
         f"- Critical issues: {report.critical_count}",
@@ -93,8 +113,13 @@ def render_markdown(report: AnalysisReport) -> str:
                 f"- Severity: **{issue.severity.value}**",
                 f"- Affected UE/session: `{issue.affected_session}`",
                 f"- Failed protocol layer: `{issue.failed_layer}`",
+                f"- Last successful step: `{issue.last_successful_step}`",
                 f"- First suspicious message: {issue.first_suspicious_message}",
                 f"- Missing or failed expected message: `{issue.missing_or_failed_expected_message}`",
+                f"- Probable domain: `{issue.probable_domain.value}`",
+                f"- Recommended owner: `{issue.recommended_owner}`",
+                f"- Confidence: `{issue.confidence:.2f}`",
+                f"- Confidence reason: {issue.confidence_reason}",
                 "",
                 "Probable root cause:",
                 "",
@@ -109,6 +134,12 @@ def render_markdown(report: AnalysisReport) -> str:
         lines.extend(["", "Recommended troubleshooting actions:", ""])
         for action in issue.suggested_actions:
             lines.append(f"- {action}")
+        lines.extend(["", "Suggested troubleshooting commands/checks:", ""])
+        for command in issue.suggested_commands:
+            lines.append(f"- {command}")
+        lines.extend(["", "False-positive notes:", ""])
+        for note in issue.false_positive_notes:
+            lines.append(f"- {note}")
         lines.append("")
 
     lines.extend(["## Protocol Flow Checks", ""])
@@ -159,6 +190,8 @@ def write_report(report: AnalysisReport, output: Path, *, fmt: str) -> None:
         output.write_text(render_json(report), encoding="utf-8")
     elif fmt == "markdown":
         output.write_text(render_markdown(report), encoding="utf-8")
+    elif fmt == "html":
+        output.write_text(render_html(report), encoding="utf-8")
     else:
         msg = f"Unsupported report format: {fmt}"
         raise ValueError(msg)
@@ -166,7 +199,14 @@ def write_report(report: AnalysisReport, output: Path, *, fmt: str) -> None:
 
 def _issue_rows(issues: list[Issue]) -> list[list[str]]:
     return [
-        [issue.severity.value, issue.issue_type, issue.affected_session, issue.failed_layer]
+        [
+            issue.severity.value,
+            issue.issue_type,
+            issue.affected_session,
+            issue.probable_domain.value,
+            issue.recommended_owner,
+            f"{issue.confidence:.2f}",
+        ]
         for issue in issues
     ]
 
@@ -175,8 +215,13 @@ def _terminal_issue_detail(issue: Issue) -> list[str]:
     lines = [
         f"[{issue.severity.value}] {issue.issue_type} ({issue.affected_session})",
         f"Layer: {issue.failed_layer}",
+        f"Last successful step: {issue.last_successful_step}",
         f"Suspicious: {issue.first_suspicious_message}",
         f"Expected: {issue.missing_or_failed_expected_message}",
+        f"Domain: {issue.probable_domain.value}",
+        f"Owner: {issue.recommended_owner}",
+        f"Confidence: {issue.confidence:.2f}",
+        f"Confidence reason: {issue.confidence_reason}",
         f"Root cause: {issue.probable_cause}",
         "Evidence:",
     ]
@@ -185,6 +230,12 @@ def _terminal_issue_detail(issue: Issue) -> list[str]:
     lines.append("Next steps:")
     for action in issue.suggested_actions:
         lines.append(f"  - {action}")
+    lines.append("Suggested checks:")
+    for command in issue.suggested_commands:
+        lines.append(f"  - {command}")
+    lines.append("False-positive notes:")
+    for note in issue.false_positive_notes:
+        lines.append(f"  - {note}")
     return lines
 
 

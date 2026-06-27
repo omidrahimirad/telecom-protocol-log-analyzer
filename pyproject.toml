@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: System :: Networking :: Monitoring",
 ]
-dependencies = []
+dependencies = ["PyYAML>=6.0"]
 
 [project.optional-dependencies]
 dev = [
@@ -29,6 +29,7 @@ dev = [
   "mypy>=1.8",
   "pytest>=8.0",
   "ruff>=0.4",
+  "types-PyYAML>=6.0",
 ]
 
 [project.scripts]
@@ -36,6 +37,9 @@ telecom-log-analyzer = "telecom_log_analyzer.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"telecom_log_analyzer.knowledge_base" = ["*.yaml"]
 
 [tool.ruff]
 line-length = 100

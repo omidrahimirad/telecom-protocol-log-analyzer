@@ -1,0 +1,91 @@
+causes:
+  - protocol: NAS_5GS
+    normalized_cause: authentication failure
+    aliases: [authentication-failure, synch-failure, mac-failure, AuthenticationFailure]
+    domain: UE
+    severity: HIGH
+    explanation: Authentication failed after the network challenge; likely areas include USIM profile, authentication vectors, SQN synchronization, or UE modem USIM access.
+    recommended_checks:
+      - Check AUSF/UDM/HSS authentication vectors and subscriber key material.
+      - Inspect UE modem logs for AUTN/RAND/AUTS or USIM access errors.
+    confidence_hints: Explicit NAS authentication failure messages are high-confidence evidence.
+  - protocol: NAS_5GS
+    normalized_cause: roaming not allowed
+    aliases: [roaming-not-allowed, plmn-not-allowed, PLMN not allowed]
+    domain: SUBSCRIPTION
+    severity: HIGH
+    explanation: Registration was rejected by PLMN, roaming, or subscriber policy.
+    recommended_checks:
+      - Verify allowed PLMN, roaming policy, tracking area, and subscriber profile.
+      - Confirm the UE is camping on the intended test PLMN.
+    confidence_hints: Explicit RegistrationReject causes are usually high-confidence core/subscription evidence.
+  - protocol: NAS_5GS
+    normalized_cause: missing or unknown DNN
+    aliases: [missing-or-unknown-dnn, unknown-dnn, missing DNN]
+    domain: CORE
+    severity: HIGH
+    explanation: PDU session setup failed because the requested DNN or session policy was not available.
+    recommended_checks:
+      - Check SMF DNN configuration, subscriber session policy, and UPF selection.
+      - Verify requested S-NSSAI/DNN matches the test profile.
+    confidence_hints: NAS SM reject cause directly points to session-management configuration.
+  - protocol: NAS_5GS
+    normalized_cause: congestion
+    aliases: [congestion, network-congestion, overload]
+    domain: CORE
+    severity: MEDIUM
+    explanation: The core or access network indicated overload or congestion.
+    recommended_checks:
+      - Check AMF/gNB overload controls and reject counters.
+      - Review retry timers and whether many UEs are affected.
+    confidence_hints: Congestion causes need correlation with counters before final RCA.
+  - protocol: NGAP
+    normalized_cause: target cell not available
+    aliases: [target-cell-unavailable, target-cell-not-available]
+    domain: RAN
+    severity: HIGH
+    explanation: Handover target preparation or execution failed because the target cell was unavailable or rejected admission.
+    recommended_checks:
+      - Check neighbor relation, target cell state, admission control, and Xn/N2 reachability.
+      - Review target-cell PRACH/RACH and resource counters.
+    confidence_hints: Explicit handover failure cause is strong RAN mobility evidence.
+  - protocol: NGAP
+    normalized_cause: transport cause
+    aliases: [transport, transport-resource-unavailable]
+    domain: TRANSPORT
+    severity: HIGH
+    explanation: NGAP reported a transport-related failure affecting N2/N3 reachability or tunnel/resource setup.
+    recommended_checks:
+      - Verify SCTP/N2 reachability, routing, MTU, and firewall policy.
+      - Check UPF N3 tunnel endpoint and transport alarms.
+    confidence_hints: Transport causes are stronger when paired with setup failure or release.
+  - protocol: NGAP
+    normalized_cause: insufficient resources
+    aliases: [radio-resources-not-available, insufficient-resources, resources-not-available]
+    domain: RAN
+    severity: HIGH
+    explanation: RAN resource admission failed for context, bearer, PDU session, or mobility setup.
+    recommended_checks:
+      - Check gNB admission control, DRB/QoS flow mapping, and cell load.
+      - Correlate with RLC/MAC and radio bearer setup counters.
+    confidence_hints: Explicit resource setup failures are high-confidence RAN admission evidence.
+  - protocol: RRC
+    normalized_cause: reconfiguration failure
+    aliases: [reconfiguration-failure, unsupported-band-combination, unsupported-configuration]
+    domain: RAN
+    severity: HIGH
+    explanation: UE could not apply radio bearer, measurement, mobility, or DRB configuration.
+    recommended_checks:
+      - Compare RRCReconfiguration with UE capability and band combination support.
+      - Review RF conditions and mobility parameters around the failure.
+    confidence_hints: UE-originated RRC failure is strong evidence, but parameter details require decoded RRC contents.
+  - protocol: RRC
+    normalized_cause: radio link failure
+    aliases: [radio-link-failure, rlf]
+    domain: RF
+    severity: CRITICAL
+    explanation: UE or RAN indicated radio link failure, usually tied to coverage, interference, mobility, or link maintenance.
+    recommended_checks:
+      - Review RSRP/RSRQ/SINR, beam changes, RLC retransmissions, and handover timing.
+      - Compare failures by cell, PCI, ARFCN, and location.
+    confidence_hints: RLF is high-confidence RF/RAN evidence, but final root cause needs measurements.

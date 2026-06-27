@@ -16,27 +16,25 @@ class Sessionizer:
         last_seen: dict[str, LogEvent] = {}
 
         for event in events:
-            previous = last_seen.get(event.ue_id)
+            key = event.correlation_key
+            previous = last_seen.get(key)
             if previous and event.timestamp < previous.timestamp:
                 warnings.append(
                     ParseWarning(
                         line_no=event.line_no,
-                        message=(
-                            f"Out-of-order timestamp for UE {event.ue_id}; timeline was sorted "
-                            "before analysis"
-                        ),
+                        message=f"Out-of-order timestamp for UE trace {key}; timeline was sorted before analysis",
                         raw_line=event.raw,
                     )
                 )
-            last_seen[event.ue_id] = event
-            per_ue[event.ue_id].append(event)
+            last_seen[key] = event
+            per_ue[key].append(event)
 
         sessions = [
             Session(
-                key=ue_id,
-                ue_id=ue_id,
+                key=trace_key,
+                ue_id=ue_events[0].ue_id,
                 events=sorted(ue_events, key=lambda item: (item.timestamp, item.line_no)),
             )
-            for ue_id, ue_events in sorted(per_ue.items())
+            for trace_key, ue_events in sorted(per_ue.items())
         ]
         return sessions, warnings

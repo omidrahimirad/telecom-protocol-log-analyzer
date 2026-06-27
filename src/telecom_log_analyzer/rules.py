@@ -5,15 +5,22 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import timedelta
 
-from telecom_log_analyzer.models import Issue, LogEvent, Session, Severity
+from telecom_log_analyzer.knowledge_base import CauseCodeCatalog, load_cause_catalog
+from telecom_log_analyzer.models import Issue, LogEvent, ProbableDomain, Session, Severity
+from telecom_log_analyzer.timers import TimerProfile, load_timer_profile
 from telecom_log_analyzer.utils import format_duration
 
 
 class RuleEngine:
     """Evaluate deterministic protocol troubleshooting rules."""
 
-    def __init__(self, *, timeout_seconds: int = 10) -> None:
-        self.timeout = timedelta(seconds=timeout_seconds)
+    def __init__(
+        self, *, timeout_seconds: int | None = None, timer_profile: TimerProfile | None = None
+    ) -> None:
+        self.timer_profile = timer_profile or load_timer_profile("field")
+        self.timeout = timedelta(
+            seconds=timeout_seconds or self.timer_profile.handover_completion_timeout_seconds
+        )
 
     def evaluate(self, sessions: Iterable[Session]) -> list[Issue]:
         issues: list[Issue] = []
@@ -169,6 +176,31 @@ class RuleEngine:
                     [reg_req, auth_req],
                 )
             )
+
+        if auth_req and auth_resp:
+            delay_ms = int((auth_resp.timestamp - auth_req.timestamp).total_seconds() * 1000)
+            if delay_ms > self.timer_profile.registration_auth_timeout_ms:
+                issues.append(
+                    make_issue(
+                        "5G_REGISTRATION_AUTHENTICATION_TIMEOUT",
+                        session,
+                        Severity.MEDIUM,
+                        "NAS",
+                        auth_req,
+                        "AuthenticationResponse within timer profile",
+                        (
+                            f"AuthenticationResponse arrived after {format_duration(delay_ms / 1000)} "
+                            f"for UE {session.ue_id}, exceeding the {self.timer_profile.name} profile "
+                            "authentication timer. Treat this as a timing symptom requiring correlation "
+                            "with UE modem, USIM, and radio scheduling logs."
+                        ),
+                        [
+                            "Check UE modem timing, USIM response latency, and uplink NAS scheduling.",
+                            "Compare the delay with the selected timer profile and log aggregation delay.",
+                        ],
+                        [reg_req, auth_req, auth_resp],
+                    )
+                )
 
         if auth_resp and not sec_cmd and not reg_accept and not reg_reject and not sec_reject:
             issues.append(
@@ -626,6 +658,26 @@ def make_issue(
     *,
     affected_session: str | None = None,
 ) -> Issue:
+    evidence_events = [event for event in evidence if event is not None]
+    catalog = get_cause_catalog()
+    cause_entry = catalog.lookup(
+        suspicious.layer,
+        suspicious.cause,
+        f"{issue_type} {suspicious.message} {expected} {cause}",
+    )
+    domain = cause_entry.domain if cause_entry else infer_domain(issue_type, failed_layer, cause)
+    owner = owner_for_domain(domain)
+    confidence, confidence_reason = score_confidence(
+        suspicious=suspicious,
+        evidence=evidence_events,
+        issue_type=issue_type,
+        missing_only="MISSING" in issue_type or "TIMEOUT" in issue_type,
+    )
+    enhanced_cause = cause
+    actions = list(actions)
+    if cause_entry:
+        enhanced_cause = f"{cause} Catalog match: {cause_entry.explanation}"
+        actions = [*actions, *cause_entry.recommended_checks]
     return Issue(
         issue_type=issue_type,
         affected_session=affected_session or session.key,
@@ -633,10 +685,129 @@ def make_issue(
         failed_layer=failed_layer,
         first_suspicious_message=f"line {suspicious.line_no}: {suspicious.message}",
         missing_or_failed_expected_message=expected,
-        probable_cause=cause,
-        suggested_actions=actions,
-        evidence=[event for event in evidence if event is not None],
+        probable_cause=enhanced_cause,
+        suggested_actions=dedupe_text(actions),
+        evidence=evidence_events,
+        last_successful_step=last_successful_step(evidence_events),
+        probable_domain=domain,
+        recommended_owner=owner,
+        confidence=confidence,
+        confidence_reason=confidence_reason,
+        suggested_commands=suggested_commands_for_domain(domain),
+        false_positive_notes=false_positive_notes(issue_type),
     )
+
+
+_CAUSE_CATALOG: CauseCodeCatalog | None = None
+
+
+def get_cause_catalog() -> CauseCodeCatalog:
+    global _CAUSE_CATALOG
+    if _CAUSE_CATALOG is None:
+        _CAUSE_CATALOG = load_cause_catalog()
+    return _CAUSE_CATALOG
+
+
+def infer_domain(issue_type: str, failed_layer: str, cause: str) -> ProbableDomain:
+    text = f"{issue_type} {failed_layer} {cause}".lower()
+    if "radio" in text or "rrc" in text or "handover" in text:
+        return ProbableDomain.RAN
+    if "roaming" in text or "subscription" in text or "plmn" in text:
+        return ProbableDomain.SUBSCRIPTION
+    if "transport" in text:
+        return ProbableDomain.TRANSPORT
+    if "authentication" in text or "security" in text:
+        return ProbableDomain.UE
+    if "pdu" in text or "ngap" in text or "registration" in text:
+        return ProbableDomain.CORE
+    return ProbableDomain.UNKNOWN
+
+
+def owner_for_domain(domain: ProbableDomain) -> str:
+    return {
+        ProbableDomain.UE: "UE/Modem Engineer",
+        ProbableDomain.RAN: "RAN Engineer",
+        ProbableDomain.CORE: "Core Engineer",
+        ProbableDomain.SUBSCRIPTION: "Subscription/Provisioning Engineer",
+        ProbableDomain.TRANSPORT: "Transport Engineer",
+        ProbableDomain.RF: "RF Engineer",
+        ProbableDomain.UNKNOWN: "Core Engineer",
+    }[domain]
+
+
+def score_confidence(
+    *, suspicious: LogEvent, evidence: list[LogEvent], issue_type: str, missing_only: bool
+) -> tuple[float, str]:
+    score = 0.62
+    reasons: list[str] = []
+    if any(word in suspicious.message.lower() for word in ("failure", "reject")):
+        score += 0.18
+        reasons.append(f"explicit {suspicious.message} observed")
+    if suspicious.cause:
+        score += 0.08
+        reasons.append(f"cause code '{suspicious.cause}' present")
+    if len(evidence) >= 2:
+        score += 0.06
+        reasons.append("multiple supporting events")
+    if suspicious.correlation_key == "UNKNOWN_UE":
+        score -= 0.12
+        reasons.append("UE identity correlation is weak")
+    if missing_only:
+        score -= 0.1
+        reasons.append("finding is based on missing/timeout evidence")
+    score = max(0.25, min(0.98, score))
+    reason = "; ".join(reasons) or "deterministic procedure rule matched decoded evidence"
+    return round(score, 2), reason
+
+
+def last_successful_step(evidence: list[LogEvent]) -> str:
+    if not evidence:
+        return "unknown"
+    if len(evidence) == 1:
+        return evidence[0].message
+    return evidence[-2].message
+
+
+def suggested_commands_for_domain(domain: ProbableDomain) -> list[str]:
+    return {
+        ProbableDomain.UE: ["Collect UE modem NAS/RRC trace around the affected procedure."],
+        ProbableDomain.RAN: [
+            "Check gNB admission, RRC, RACH, and mobility counters for the affected cell."
+        ],
+        ProbableDomain.CORE: [
+            "Inspect AMF/SMF logs using the UE identity and NGAP IDs from evidence."
+        ],
+        ProbableDomain.SUBSCRIPTION: [
+            "Verify subscriber profile, PLMN, roaming, DNN, and S-NSSAI policy."
+        ],
+        ProbableDomain.TRANSPORT: [
+            "Verify N2/N3 transport reachability, SCTP state, routing, and MTU."
+        ],
+        ProbableDomain.RF: ["Correlate with RSRP/RSRQ/SINR, RLF, and field-test location data."],
+        ProbableDomain.UNKNOWN: [
+            "Correlate with UE, RAN, and core logs before assigning ownership."
+        ],
+    }[domain]
+
+
+def false_positive_notes(issue_type: str) -> list[str]:
+    if "MISSING" in issue_type or "TIMEOUT" in issue_type:
+        return [
+            "Missing-message findings can be caused by trace filtering, incomplete capture points, or decoded-field gaps."
+        ]
+    return [
+        "Explicit failure/reject findings still require correlation with vendor logs and counters."
+    ]
+
+
+def dedupe_text(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value not in seen:
+            result.append(value)
+            seen.add(value)
+    return result
 
 
 def first_event(events: list[LogEvent], message: str) -> LogEvent | None:

@@ -1,0 +1,72 @@
+[
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "1",
+          "frame.time_epoch": "1780317600.000"
+        },
+        "_ws.col.Info": "InitialUEMessage, Registration request",
+        "_ws.col.Source": "gNB",
+        "_ws.col.Destination": "AMF",
+        "ngap": {
+          "ngap.message_name": "InitialUEMessage",
+          "ngap.RAN_UE_NGAP_ID": "101",
+          "ngap.AMF_UE_NGAP_ID": "501",
+          "ngap.nR-CGI": "NR-101"
+        }
+      }
+    }
+  },
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "2",
+          "frame.time_epoch": "1780317600.100"
+        },
+        "_ws.col.Info": "Uplink NAS: Registration Request",
+        "_ws.col.Source": "UE",
+        "_ws.col.Destination": "AMF",
+        "nas-5gs": {
+          "nas-5gs.message_name": "RegistrationRequest",
+          "nas-5gs.imsi": "IMSI001010555123456"
+        }
+      }
+    }
+  },
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "3",
+          "frame.time_epoch": "1780317600.300"
+        },
+        "_ws.col.Info": "Downlink NAS: Authentication Request",
+        "_ws.col.Source": "AMF",
+        "_ws.col.Destination": "UE",
+        "nas-5gs": {
+          "nas-5gs.message_name": "AuthenticationRequest",
+          "nas-5gs.imsi": "IMSI001010555123456"
+        }
+      }
+    }
+  },
+  {
+    "_source": {
+      "layers": {
+        "frame": {
+          "frame.number": "4",
+          "frame.time_epoch": "1780317603.900"
+        },
+        "_ws.col.Info": "Uplink NAS: Authentication Response",
+        "_ws.col.Source": "UE",
+        "_ws.col.Destination": "AMF",
+        "nas-5gs": {
+          "nas-5gs.message_name": "AuthenticationResponse",
+          "nas-5gs.imsi": "IMSI001010555123456"
+        }
+      }
+    }
+  }
+]
