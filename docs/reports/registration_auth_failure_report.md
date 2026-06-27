@@ -1,0 +1,85 @@
+# Telecom Protocol Log Analysis Report
+
+Source: `data/samples/registration_auth_failure.log`
+
+## Summary
+
+- Sessions analyzed: 1
+- UEs/traces analyzed: 1
+- Procedures observed: 2
+- Events analyzed: 8
+- Issues detected: 1
+- Critical issues: 0
+- High severity issues: 1
+- Parser/session warnings: 0
+
+## Detected Issues
+
+### 1. 5G_REGISTRATION_AUTHENTICATION_FAILURE
+
+- Severity: **HIGH**
+- Affected UE/session: `IMSI001010999000001`
+- Failed protocol layer: `NAS`
+- Last successful step: `AuthenticationRequest`
+- First suspicious message: line 7: AuthenticationFailure
+- Missing or failed expected message: `AuthenticationResponse`
+- Probable domain: `UE`
+- Recommended owner: `UE/Modem Engineer`
+- Confidence: `0.94`
+- Confidence reason: explicit AuthenticationFailure observed; cause code 'synch-failure' present; multiple supporting events
+
+Probable root cause:
+
+UE IMSI001010999000001 returned AuthenticationFailure after NAS authentication. This commonly points to USIM authentication vector mismatch, wrong key material in AUSF/UDM/HSS, SQN resynchronization problems, or modem-side USIM access errors. Catalog match: Authentication failed after the network challenge; likely areas include USIM profile, authentication vectors, SQN synchronization, or UE modem USIM access.
+
+Evidence lines:
+
+- Line 5: `2026-06-01T10:20:00.260Z | UE=IMSI001010999000001 | CELL=NR-101 | LAYER=NAS | DIR=UE_TO_AMF | MSG=RegistrationRequest`
+- Line 6: `2026-06-01T10:20:00.440Z | UE=IMSI001010999000001 | CELL=NR-101 | LAYER=NAS | DIR=AMF_TO_UE | MSG=AuthenticationRequest`
+- Line 7: `2026-06-01T10:20:00.680Z | UE=IMSI001010999000001 | CELL=NR-101 | LAYER=NAS | DIR=UE_TO_AMF | MSG=AuthenticationFailure | CAUSE=synch-failure`
+
+Recommended troubleshooting actions:
+
+- Check AUSF/UDM authentication vectors, SUPI/SUCI provisioning, and USIM profile.
+- Inspect modem traces for AUTS/resynchronization details and rejected RAND/AUTN.
+- Verify the UE is using the intended test PLMN and subscriber profile.
+- Check AUSF/UDM/HSS authentication vectors and subscriber key material.
+- Inspect UE modem logs for AUTN/RAND/AUTS or USIM access errors.
+
+Suggested troubleshooting commands/checks:
+
+- Collect UE modem NAS/RRC trace around the affected procedure.
+
+False-positive notes:
+
+- Explicit failure/reject findings still require correlation with vendor logs and counters.
+
+## Protocol Flow Checks
+
+### IMSI001010999000001
+
+| Flow | Status | Missing | Abnormal |
+| --- | --- | --- | --- |
+| 5G registration | incomplete/abnormal | AuthenticationResponse, SecurityModeCommand, SecurityModeComplete, RegistrationAccept, RegistrationComplete | AuthenticationFailure |
+| RRC setup | complete |  |  |
+
+## UE/Session Timeline
+
+### IMSI001010999000001
+
+| Time | Layer | Direction | Message | Cause | Cell |
+| --- | --- | --- | --- | --- | --- |
+| 2026-06-01T10:20:00Z | RRC | UE_TO_GNB | RRCSetupRequest | mo-Signalling | NR-101 |
+| 2026-06-01T10:20:00.080000Z | RRC | GNB_TO_UE | RRCSetup |  | NR-101 |
+| 2026-06-01T10:20:00.170000Z | RRC | UE_TO_GNB | RRCSetupComplete |  | NR-101 |
+| 2026-06-01T10:20:00.230000Z | NGAP | GNB_TO_AMF | InitialUEMessage |  | NR-101 |
+| 2026-06-01T10:20:00.260000Z | NAS | UE_TO_AMF | RegistrationRequest |  | NR-101 |
+| 2026-06-01T10:20:00.440000Z | NAS | AMF_TO_UE | AuthenticationRequest |  | NR-101 |
+| 2026-06-01T10:20:00.680000Z | NAS | UE_TO_AMF | AuthenticationFailure | synch-failure | NR-101 |
+| 2026-06-01T10:20:01Z | NGAP | AMF_TO_GNB | UEContextReleaseCommand | authentication-failure | NR-101 |
+
+## Limitations
+
+- This report is based on simplified text/JSONL logs, not a binary PCAP or full ASN.1 decoder.
+- The state machines are intentionally compact and do not implement every 3GPP timer, cause, or vendor extension.
+- Findings should be correlated with gNB, AMF, SMF, UPF, UE modem, and RF/KPI data before operational action.

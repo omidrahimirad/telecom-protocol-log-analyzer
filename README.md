@@ -1,5 +1,9 @@
 # Telecom Protocol Log Analyzer
 
+[![CI](https://github.com/omidrahimirad/telecom-protocol-log-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/omidrahimirad/telecom-protocol-log-analyzer/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 `telecom-protocol-log-analyzer` is a procedure-aware analyzer for simplified and decoded 4G/5G control-plane event traces. It normalizes decoded events from simplified logs and best-effort TShark JSON exports, correlates UE/procedure/session identifiers, checks common registration/session/RRC/handover flows, and generates evidence-based troubleshooting reports.
 
 This is not a full 3GPP ASN.1 decoder, raw PCAP decoder, QXDM/TEMS/Nemo replacement, or commercial-grade RCA system. It is a lab-oriented trace triage and portfolio project for already-decoded telecom events.
@@ -154,6 +158,14 @@ uv run python -m telecom_log_analyzer analyze data/samples/handover_success.log 
 uv run python -m telecom_log_analyzer analyze data/samples/handover_success.log --timer-profile field
 ```
 
+## Example Reports
+
+- [TShark JSON registration report](docs/reports/sample_tshark_registration_report.md)
+- [Registration authentication failure report](docs/reports/registration_auth_failure_report.md)
+- [Registration authentication failure HTML report](docs/reports/registration_auth_failure_report.html)
+
+These reports show the tool's evidence-based style: affected UE/session, procedure timeline, issue severity, probable domain, confidence score, recommended owner, and suggested checks.
+
 ## Example Output
 
 ```text
@@ -211,6 +223,20 @@ src/telecom_log_analyzer/
   cli.py                 # argparse CLI
 ```
 
+## Portfolio Relevance
+
+This project demonstrates practical overlap between telecom troubleshooting and Python engineering:
+
+- decoded trace ingestion and normalization
+- RRC/NAS/NGAP control-plane procedure analysis
+- UE, procedure, PDU session, and mobility correlation
+- evidence-based failure detection
+- configurable timer profiles
+- cause-code knowledge base
+- reproducible CLI workflow with tests and CI
+
+It is especially relevant for Wireless Support Engineer, Modem/RF Application Engineer, Protocol Test Engineer, Field Test Engineer, and 4G/5G troubleshooting roles.
+
 ## Relevance To Telecom Roles
 
 This project is designed to demonstrate skills useful for:
@@ -221,6 +247,14 @@ This project is designed to demonstrate skills useful for:
 - Field Test Engineer: repeatable sample scenarios and CLI validation
 - Protocol Test Engineer: deterministic rules, state-machine thinking, and test coverage
 - Network Integration / Support Engineer: actionable next steps across gNB, AMF, SMF, UPF, and subscriber provisioning
+
+## How To Describe This Project Honestly
+
+Safe wording:
+
+> A procedure-aware troubleshooting engine for simplified and already-decoded 4G/5G control-plane event traces. It supports simplified logs and best-effort TShark JSON ingestion, then performs UE/procedure/PDU correlation, timer-aware checks, cause-code enrichment, confidence scoring, and evidence-based reporting.
+
+Avoid calling it a raw PCAP decoder, full 5G decoder, or commercial tool replacement.
 
 ## Limitations
 
