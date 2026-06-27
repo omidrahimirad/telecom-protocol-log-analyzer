@@ -47,7 +47,27 @@ flowchart LR
 2026-06-01T10:15:01.400Z | UE=IMSI001010123456789 | CELL=NR-101 | LAYER=NAS | DIR=UE_TO_AMF | MSG=RegistrationRequest
 ```
 
-## Installation
+## Development Setup With uv
+
+This project uses `uv` as the recommended development workflow.
+
+```bash
+uv sync --extra dev
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest -v
+uv run coverage run -m pytest
+uv run coverage report
+```
+
+Run the analyzer:
+
+```bash
+uv run python -m telecom_log_analyzer analyze data/samples/registration_auth_failure.log
+```
+
+Standard pip editable installation is still possible, but uv is recommended for reproducible local development and CI:
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -132,12 +152,12 @@ The repository includes realistic simplified traces under `data/samples/`:
 ## Development Commands
 
 ```bash
-ruff check .
-ruff format --check .
-mypy src
-pytest -v
-coverage run -m pytest
-coverage report
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest -v
+uv run coverage run -m pytest
+uv run coverage report
 ```
 
 ## Project Structure
