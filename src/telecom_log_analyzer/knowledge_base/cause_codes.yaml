@@ -19,7 +19,7 @@ causes:
       - Verify allowed PLMN, roaming policy, tracking area, and subscriber profile.
       - Confirm the UE is camping on the intended test PLMN.
     confidence_hints: Explicit RegistrationReject causes are usually high-confidence core/subscription evidence.
-  - protocol: NAS_5GS
+  - protocol: ANY
     normalized_cause: missing or unknown DNN
     aliases: [missing-or-unknown-dnn, unknown-dnn, missing DNN]
     domain: CORE
@@ -51,7 +51,7 @@ causes:
     confidence_hints: Explicit handover failure cause is strong RAN mobility evidence.
   - protocol: NGAP
     normalized_cause: transport cause
-    aliases: [transport, transport-resource-unavailable]
+    aliases: [transport-resource-unavailable, transport-failure, n2-transport-failure]
     domain: TRANSPORT
     severity: HIGH
     explanation: NGAP reported a transport-related failure affecting N2/N3 reachability or tunnel/resource setup.

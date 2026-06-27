@@ -32,7 +32,7 @@ class Sessionizer:
         sessions = [
             Session(
                 key=trace_key,
-                ue_id=ue_events[0].ue_id,
+                ue_id=ue_events[0].ue_id if ue_events[0].ue_id != "UNKNOWN_UE" else trace_key,
                 events=sorted(ue_events, key=lambda item: (item.timestamp, item.line_no)),
             )
             for trace_key, ue_events in sorted(per_ue.items())

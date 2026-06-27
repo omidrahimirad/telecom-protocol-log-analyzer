@@ -552,6 +552,7 @@ class RuleEngine:
             )
 
         if command and not complete and not failure:
+            release = first_event_after(events, "UEContextReleaseCommand", command)
             issues.append(
                 make_issue(
                     "HANDOVER_EXECUTION_COMPLETE_MISSING",
@@ -574,6 +575,28 @@ class RuleEngine:
                     [command],
                 )
             )
+            if release:
+                issues.append(
+                    make_issue(
+                        "HANDOVER_RELEASE_AFTER_COMMAND",
+                        session,
+                        Severity.HIGH,
+                        "NGAP/RRC",
+                        release,
+                        "HandoverNotify before UEContextRelease",
+                        (
+                            f"UE context release occurred after HandoverCommand for UE {session.ue_id} "
+                            "before any handover completion was observed. This is a stronger handover "
+                            "execution failure signal than a missing completion alone and usually points "
+                            "to target access failure, radio loss, or mobility context cleanup after failed execution."
+                        ),
+                        [
+                            "Check target-cell RACH/access attempts and source/target mobility logs.",
+                            "Inspect UEContextRelease cause and correlate with radio-link or handover timers.",
+                        ],
+                        [command, release],
+                    )
+                )
 
         if command and complete:
             duration = complete.timestamp - command.timestamp
@@ -710,6 +733,10 @@ def get_cause_catalog() -> CauseCodeCatalog:
 
 def infer_domain(issue_type: str, failed_layer: str, cause: str) -> ProbableDomain:
     text = f"{issue_type} {failed_layer} {cause}".lower()
+    if "missing_authentication_request" in text or "security_mode_command_missing" in text:
+        return ProbableDomain.CORE
+    if "security_mode_complete_missing" in text:
+        return ProbableDomain.UE
     if "radio" in text or "rrc" in text or "handover" in text:
         return ProbableDomain.RAN
     if "roaming" in text or "subscription" in text or "plmn" in text:

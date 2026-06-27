@@ -91,8 +91,14 @@ RRC_SETUP = OrderedFlowMachine(
 
 HANDOVER = OrderedFlowMachine(
     "NG-RAN handover",
-    ["HandoverRequired", "HandoverRequest", "HandoverRequestAcknowledge", "HandoverCommand"],
-    ["HandoverFailure"],
+    [
+        "HandoverRequired",
+        "HandoverRequest",
+        "HandoverRequestAcknowledge",
+        "HandoverCommand",
+        "HandoverNotify",
+    ],
+    ["HandoverFailure", "UEContextReleaseCommand"],
 )
 
 FLOW_MACHINES = (REGISTRATION_5G, PDU_SESSION, RRC_SETUP, HANDOVER)
@@ -104,7 +110,6 @@ def evaluate_session_flows(events: list[LogEvent]) -> list[FlowCheck]:
     checks: list[FlowCheck] = []
     messages = {event.message for event in events}
     for machine in FLOW_MACHINES:
-        relevant = set(machine.expected_sequence) | set(machine.abnormal_messages)
-        if messages & relevant:
+        if messages & set(machine.expected_sequence):
             checks.append(machine.evaluate(events))
     return checks
