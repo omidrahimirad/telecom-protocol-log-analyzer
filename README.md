@@ -222,5 +222,7 @@ src/telecom_log_analyzer/
   protocol_reference.py  # message explanations
   cli.py                 # argparse CLI
 ```
+## Maintainer
 
+Omid Rahimi
 
